@@ -1,2 +1,11 @@
-#Side effects from Module packaging.
-pkg/
+.*.sw?
+pkg
+spec/fixtures
+.rspec_system
+.vagrant
+.bundle
+vendor
+.idea
+.project
+.DS_Store
+

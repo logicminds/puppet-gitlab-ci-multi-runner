@@ -1,0 +1,17 @@
+before_script:
+  - bundle install
+  - ruby --version
+  - echo "Puppet $(bundle exec puppet --version)"
+  - echo "Facter $(facter --version)"
+
+validate:
+  script:
+    - bundle exec rake validate
+
+lint:
+  script:
+    - bundle exec rake lint
+
+spec:
+  script:
+    - bundle exec rake spec

@@ -108,13 +108,13 @@ define gitlab_ci_multi_runner::runner (
     # Runner Options                                       #
     # Used By all Executors.                               #
     ########################################################
-
+    $user,
+    $toml_file = '/etc/gitlab/gitlab-runner/config.toml',
     $gitlab_ci_url = undef,
     $tags = undef,
     $token = undef,
     $env = undef,
     $executor = undef,
-
     ########################################################
     # Docker Options                                       #
     # Used by the Docker and Docker SSH executors.         #
@@ -145,19 +145,13 @@ define gitlab_ci_multi_runner::runner (
     $ssh_port = undef,
     $ssh_user = undef,
     $ssh_password = undef,
-    $require = [ Class['gitlab_ci_multi_runner'] ]
 ) {
     # GitLab allows runner names with problematic characters like quotes
     # Make sure they don't trip up the shell when executed
     $description = shellquote($name)
-
-    $user = 'gitlab_ci_multi_runner'
     $group = $user
     $home_path = "/home/${user}"
-    $toml_file = $::gitlab_ci_multi_runner::version ? {
-        /^0\.[0-4]\..*/ => "${home_path}/config.toml",
-        default         => "${home_path}/.gitlab-runner/config.toml",
-    }
+
 
     # Here begins the arduous, manual process of taking each argument
     # and turning it into option strings.
@@ -168,10 +162,7 @@ define gitlab_ci_multi_runner::runner (
     }
 
     if $description {
-        $description_opt = $::gitlab_ci_multi_runner::version ? {
-            /^0\.[0-4]\..*/ => "--description=${description}",
-            default         => "--name=${description}",
-        }
+        $description_opt = "--name=${description}"
     }
 
     if $tags {
@@ -261,15 +252,23 @@ define gitlab_ci_multi_runner::runner (
 
     $opts = "${runner_opts} ${executor_opt} ${docker_opts} ${parallels_vm_opt} ${ssh_opts}"
 
+    file{$toml_file:
+        ensure => file,
+        owner  => $user,
+        group  => $user,
+        mode   => '0640',
+        before => Exec["Register-${name}"]
+    }
     # Register a new runner - this is where the magic happens.
     # Only if the config.toml file doesn't already contain an entry.
     # --non-interactive means it won't ask us for things, it'll just fail out.
     exec { "Register-${name}":
-        command  => "gitlab-ci-multi-runner register --non-interactive ${opts}",
-        user     => $user,
-        provider => shell,
-        onlyif   => "! grep ${description} ${toml_file}",
-        cwd      => $home_path,
-        require  => $require,
+        command     => "gitlab-ci-multi-runner register --non-interactive ${opts}",
+        user        => $user,
+        path        => [$home_path, '/bin', '/usr/bin', '/usr/local/bin'],
+        environment => ["HOME=${home_path}"],
+        provider    => shell,
+        unless      => "grep ${description} ${toml_file}",
+        cwd         => $home_path,
     }
 }
